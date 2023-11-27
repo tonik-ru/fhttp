@@ -17,7 +17,7 @@ import (
 	"sync"
 	"time"
 
-	tls "github.com/refraction-networking/utls"ng/utls"
+	tls "github.com/refraction-networking/utls"
 
 	http "github.com/Danny-Dasilva/fhttp"
 	"github.com/Danny-Dasilva/fhttp/internal"

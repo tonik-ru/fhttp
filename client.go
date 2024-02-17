@@ -789,6 +789,28 @@ func (c *Client) makeHeadersCopier(ireq *Request) func(*Request) {
 			}
 		}
 
+		// Because we copy a headers are from the very initial request.
+		// When there is a redirect, we continue to supply the wrong Host,
+		// some sites link to the Host in the headers, which is why we will
+		// not be able to make requests with a redirect to such sites.
+		//
+		// If it turns out that there was a redirect,
+		// then I check whether I should change the Host in the headers
+		//
+		// See https://github.com/Danny-Dasilva/CycleTLS/issues/323
+		if shouldUpdateHostInHeader(&ireqhdr, req) {
+			if ireqhdr.has("Host") {
+				if hhost, ok := ireqhdr["Host"]; ok && len(hhost) > 0 {
+					hhost[0] = req.URL.Host
+				} else {
+					ireqhdr["Host"] = []string{req.URL.Host}
+				}
+
+			} else {
+				ireqhdr.Set("Host", req.URL.Host)
+			}
+		}
+
 		// Copy the initial request's Header Values
 		// (at least the safe ones).
 		for k, vv := range ireqhdr {
@@ -1006,4 +1028,19 @@ func stripPassword(u *url.URL) string {
 		return strings.Replace(u.String(), u.User.String()+"@", u.User.Username()+":***@", 1)
 	}
 	return u.String()
+}
+
+func shouldUpdateHostInHeader(firstHeader *Header, curr *Request) bool {
+	if curr == nil || firstHeader == nil || curr.Response == nil {
+		return false
+	}
+	headers := *firstHeader
+
+	switch curr.Response.StatusCode {
+	case 301, 302, 303, 307, 308:
+		host, ok := headers["Host"]
+		return !ok || len(host) == 0 || host[0] != curr.URL.Host
+	}
+	// All other ways:
+	return false
 }
